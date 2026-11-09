@@ -1,0 +1,31 @@
+# Python bytecode & cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.spec
+
+# Build & Dist artifacts (PyInstaller)
+build/
+build-single/
+dist/
+dist-single/
+
+# Binary archives & screenshots & temporary exports
+*.zip
+*.tar
+*.gz
+*.png
+*.jpg
+*.jpeg
+*.html
+*.log
+
+# Virtual environments
+venv/
+env/
+.env/
+
+# IDE & Editor folders
+.vscode/
+.idea/
+*.swp

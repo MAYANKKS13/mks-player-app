@@ -1,0 +1,11 @@
+1
+00:00:01,000 --> 00:00:04,500
+Welcome to VLC Media Player (Python Edition)!
+
+2
+00:00:05,000 --> 00:00:09,000
+Enjoy seamless video and audio playback.
+
+3
+00:00:09,500 --> 00:00:14,000
+Press [Space] to pause, [F] for fullscreen, [L] for playlist.

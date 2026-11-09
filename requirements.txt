@@ -1,0 +1,5 @@
+# MKS Player Dependencies
+PyQt5>=5.15.10
+ffpyplayer>=4.5.4
+av>=14.0.0
+python-vlc>=3.0.21203
