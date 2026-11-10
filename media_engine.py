@@ -154,12 +154,20 @@ class FFmpegMediaEngine(BaseMediaEngine):
 
         if self.player:
             try:
+                self.player.set_pause(True)
+                self.player.set_volume(0.0)
+            except Exception:
+                pass
+            import time
+            time.sleep(0.05)
+            try:
                 self.player.close_player()
             except Exception:
                 pass
             self.player = None
+            import gc
             gc.collect()
-            time.sleep(0.3)
+            time.sleep(0.4)
 
         self.current_source = source
         self._duration = 0
@@ -172,11 +180,11 @@ class FFmpegMediaEngine(BaseMediaEngine):
             'out_fmt': 'rgb24',
             'autoexit': False,
             'sync': 'audio',
+            'framedrop': True,
             'af': 'volume=2.0'
         }
         try:
             self.player = MediaPlayer(source, ff_opts=ff_opts)
-            self.player.set_volume(self._volume)
             self._is_paused = False
             self._is_stopped = False
             self._loading = False
@@ -207,7 +215,7 @@ class FFmpegMediaEngine(BaseMediaEngine):
                 self.player.set_pause(True)
                 meta = self.player.get_metadata()
                 if meta.get('duration') is not None:
-                    self.player.seek(0.0, relative=False)
+                    self.player.seek(0.0, relative=False, accurate=False)
             except Exception:
                 pass
         self._is_paused = True
@@ -223,15 +231,15 @@ class FFmpegMediaEngine(BaseMediaEngine):
                 return
             target_sec = max(0.0, pos_ms / 1000.0)
             try:
-                self.player.seek(target_sec, relative=False)
+                self.player.seek(target_sec, relative=False, accurate=False)
             except Exception:
                 pass
-            QTimer.singleShot(50, self._poll_frame)
+            QTimer.singleShot(30, self._poll_frame)
 
     def set_volume(self, volume: int):
         # Maps 0-200% volume to normalized 0.0 - 1.0 (with 2.0x audio gain filter)
         self._volume = max(0.0, min(1.0, volume / 200.0))
-        if self.player and not self._loading:
+        if self.player and not self._loading and self._duration > 0:
             try:
                 self.player.set_volume(self._volume)
             except Exception:
@@ -290,28 +298,40 @@ class FFmpegMediaEngine(BaseMediaEngine):
         if self._duration == 0:
             meta = self.player.get_metadata()
             dur = meta.get('duration')
-            if dur and dur > 0:
+            if dur and dur > 0 and meta.get('src_vid_size') != (0, 0):
                 self._duration = int(dur * 1000)
+                try:
+                    self.player.set_volume(self._volume)
+                except Exception:
+                    pass
                 self.duration_changed.emit(self._duration)
+            else:
+                return
 
         try:
             frame, val = self.player.get_frame()
-            # If video decoder lags behind audio clock, catch up immediately to the latest frame
-            while val == 0.0:
-                nxt_frame, nxt_val = self.player.get_frame()
-                if nxt_frame is not None:
-                    frame = nxt_frame
-                    val = nxt_val
-                else:
-                    break
-        except Exception:
-            return
+            if val == 'eof':
+                self.poll_timer.stop()
+                self._is_stopped = True
+                self.state_changed.emit("stopped")
+                self.media_ended.emit()
+                return
 
-        if val == 'eof':
-            self.poll_timer.stop()
-            self._is_stopped = True
-            self.state_changed.emit("stopped")
-            self.media_ended.emit()
+            # A/V Sync Guard: Instantly drop stale frames after seek or file open
+            while frame is not None:
+                vid_pts = frame[1]
+                aud_pts = self.player.get_pts()
+                if aud_pts is not None and vid_pts < aud_pts - 0.04:
+                    nxt_frame, nxt_val = self.player.get_frame()
+                    if nxt_frame is not None:
+                        frame = nxt_frame
+                        val = nxt_val
+                        continue
+                    else:
+                        frame = None
+                        break
+                break
+        except Exception:
             return
 
         if frame is not None:

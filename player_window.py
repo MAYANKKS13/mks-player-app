@@ -949,11 +949,11 @@ class PlayerWindow(QMainWindow):
             "Media Files (*.mp4 *.mkv *.avi *.mov *.wmv *.flv *.webm *.mp3 *.wav *.aac *.m4a);;All Files (*.*)"
         )
         if files:
-            first_idx = self.playlist.count()
+            was_empty = self.playlist.count() == 0
             self.playlist.add_items(files)
             self._update_playlist_buttons_visibility()
-            if not self.engine.is_playing():
-                self._play_track_index(first_idx)
+            if was_empty:
+                self._play_track_index(0)
 
     def _open_stream_dialog(self):
         url, ok = QInputDialog.getText(
